@@ -44,13 +44,12 @@ enum at_cmd_type {
 };
 
 /**
- * AT command parameter type.
+ * AT parameter type.
 */
-enum at_cmd_param_type {
-    AT_CMD_PARAM_TYPE_EMTPY,    /**< empty */
-    AT_CMD_PARAM_TYPE_UNKNOWN,  /**< unknown */
-    AT_CMD_PARAM_TYPE_NUM,      /**< number */
-    AT_CMD_PARAM_TYPE_STRING,   /**< string */
+enum at_param_type {
+    AT_PARAM_TYPE_EMTPY,    /**< empty */
+    AT_PARAM_TYPE_UNKNOWN,  /**< unknown */
+    AT_PARAM_TYPE_STRING,   /**< string */
 };
 
 struct at_parser_config {
@@ -63,9 +62,9 @@ struct at_parser_config {
 /**
  * The argument of the command.
 */
-struct at_cmd_param {
-    enum at_cmd_param_type type;
-    char *raw;
+struct at_param {
+    enum at_param_type type;
+    char *raw;  /**< raw string */
 };
 
 struct at_parser;
@@ -73,8 +72,8 @@ struct at_parser;
 /**
  * New a parser.
  *
- * @param cfg the pointer to the parser configuration.
- * @param arg the extra argument in callback.
+ * @param cfg a pointer to the parser configuration.
+ * @param arg extra argument in callback.
 */
 struct at_parser *at_parser_new(struct at_parser_config *cfg, void *arg);
 
@@ -112,7 +111,7 @@ int at_parser_post_char(struct at_parser *parser, int c);
 */
 int at_cmd_register(struct at_parser *parser, const char *cmd,
     void (*handle)(struct at_parser *parser, const char *cmd, enum at_cmd_type type,
-    struct at_cmd_param *params, unsigned char count, void *arg));
+    struct at_param *params, unsigned char count, void *arg));
 
 /**
  * Unregister a command.

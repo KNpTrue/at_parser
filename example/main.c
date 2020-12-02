@@ -23,6 +23,13 @@
 #include <termios.h>
 #include <at_parser.h>
 
+struct at_parser_arg {
+    unsigned char enable_read;
+    struct at_parser *p;
+    char buf[BUFSIZ];
+    unsigned int pos;
+};
+
 static unsigned int at_parser_tx(void *data, unsigned int len, void *arg)
 {
     int i, ret;
@@ -34,8 +41,17 @@ static unsigned int at_parser_tx(void *data, unsigned int len, void *arg)
 
 static void at_parser_enable_read(unsigned char value, void *arg)
 {
-    unsigned char *enable_read = arg;
-    *enable_read = value;
+    int i;
+    struct at_parser_arg *p_arg = arg;
+    p_arg->enable_read = value;
+    if (p_arg->enable_read) {
+        if (p_arg->pos) {
+            for (i = 0; i < p_arg->pos; i++) {
+                at_parser_post_char(p_arg->p, p_arg->buf[i]);
+            }
+            p_arg->pos = 0;
+        }
+    }
 }
 
 static struct at_parser_config cfg = {
@@ -43,11 +59,13 @@ static struct at_parser_config cfg = {
     .tx = at_parser_tx,
     .enable_read = at_parser_enable_read,
 };
+static struct at_parser_arg arg;
 
 void at_test_cmd_handle(struct at_parser *parser, const char *cmd, enum at_cmd_type type,
-    struct at_cmd_param *params, unsigned char count, void *arg)
+    struct at_param *params, unsigned char count, void *arg)
 {
     int i;
+    char buf[BUFSIZ];
     switch (type) {
     case AT_CMD_EXE:
         at_sync_response(parser, AT_RESP_OK, "TEST: exec");
@@ -58,7 +76,9 @@ void at_test_cmd_handle(struct at_parser *parser, const char *cmd, enum at_cmd_t
     case AT_CMD_SET:
         at_sync_response(parser, AT_RESP_OK, NULL);
         for (i = 0; i < count; i++) {
-            at_async_response(parser, params[i].raw);
+            snprintf(buf, sizeof(buf), "type: %d, raw: %s",
+                params[i].type, params[i].raw);
+            at_async_response(parser, buf);
         }
         break;
     case AT_CMD_READ:
@@ -71,9 +91,6 @@ int main(int argc, char *argv[])
 {
     int c;
     int i;
-    char buf[BUFSIZ];
-    unsigned int pos = 0;
-    unsigned char enable_read = 0;
     struct termios term, new_term;
 
 	tcgetattr(fileno(stdin), &term);
@@ -81,25 +98,20 @@ int main(int argc, char *argv[])
 	new_term.c_lflag &= ~(ICANON | ECHO);
 	tcsetattr(fileno(stdin), TCSANOW, &new_term);
 
-    struct at_parser *p = at_parser_new(&cfg, &enable_read);
+    struct at_parser *p = at_parser_new(&cfg, &arg);
     if (!p) {
         return -1;
     }
+    arg.p = p;
 
     at_cmd_register(p, "+TEST", at_test_cmd_handle);
 
     while (1) {
         c = getchar();
-        if (enable_read) {
-            if (pos) {
-                for (i = 0; i < pos; i++) {
-                    at_parser_post_char(p, buf[i]);
-                }
-                pos = 0;
-            }
+        if (arg.enable_read) {
             at_parser_post_char(p, c);
         } else {
-            buf[pos++] = c;
+            arg.buf[arg.pos++] = c;
         }
     }
     return 0;

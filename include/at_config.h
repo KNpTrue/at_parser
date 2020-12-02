@@ -27,7 +27,7 @@
 
 #define AT_DEBUG
 
-#define AT_CMD_PARAMS_MAX_CNT 12
+#define AT_CMD_PARAMS_MAX_CNT 24
 #define AT_CMD_NAME_MAX_LEN 32
 #define AT_RX_BUF_LEN 1024
 

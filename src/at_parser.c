@@ -33,24 +33,24 @@ enum at_parser_state {
 struct at_cmd_desc {
     char name[AT_CMD_NAME_MAX_LEN];
     void (*handle)(struct at_parser *parser, const char *cmd, enum at_cmd_type type,
-    struct at_cmd_param *args, unsigned char count, void *arg);
+        struct at_param *args, unsigned char count, void *arg);
     struct at_cmd_desc *next;
 };
 
 struct at_parser {
     enum at_parser_state state;
-    struct at_cmd_desc *desc_head;
-
-    unsigned char echo;
-    unsigned char del;
-    unsigned char wait_sync_resp;
-    char cmd[AT_CMD_NAME_MAX_LEN];
-    unsigned int cmd_pos;
     enum at_cmd_type cmd_type;
 
-    char param_buf[AT_RX_BUF_LEN];
+    unsigned int cmd_pos;
     unsigned int param_pos;
+    char cmd[AT_CMD_NAME_MAX_LEN];
+    char param_buf[AT_RX_BUF_LEN];
 
+    unsigned char echo:1;
+    unsigned char del:1;
+    unsigned char wait_sync_resp:1;
+
+    struct at_cmd_desc *desc_head;
     unsigned int (*tx)(void *data, unsigned int len, void *arg);
     void (*enable_read)(unsigned char value, void *arg);
     void *arg;
@@ -62,7 +62,7 @@ const char *at_resp_result_str[] = {
 };
 
 void ate_cmd_handle(struct at_parser *parser, const char *cmd, enum at_cmd_type type,
-    struct at_cmd_param *args, unsigned char count, void *arg)
+    struct at_param *args, unsigned char count, void *arg)
 {
     switch (type) {
     case AT_CMD_EXE:
@@ -150,66 +150,68 @@ static void at_parser_cmd_reset(struct at_parser *parser)
     parser->cmd_type = AT_CMD_NONE;
 }
 
-static int at_parse_sub_params(char *s, struct at_cmd_param *params, int cnt)
+static enum at_param_type at_param_get_type(struct at_param *param)
+{
+    return AT_PARAM_TYPE_UNKNOWN;
+}
+
+static int at_parse_sub_params(char *s, struct at_param *params, int cnt)
 {
     int i = 0;
     enum {
-        AT_CMD_PARAM_FIND_START,
-        AT_CMD_PARAM_FIND_END,
-        AT_CMD_PARAM_FIND_STRING_END,
-    } state = AT_CMD_PARAM_FIND_START;
+        AT_PARAM_FIND_START,
+        AT_PARAM_FIND_END,
+        AT_PARAM_FIND_STRING_END,
+    } state = AT_PARAM_FIND_START;
 
     for (; *s; s++) {
         switch (state) {
-        case AT_CMD_PARAM_FIND_START:
+        case AT_PARAM_FIND_START:
             switch (*s) {
             case ',':
-                params[i].type = AT_CMD_PARAM_TYPE_EMTPY;
+                params[i].type = AT_PARAM_TYPE_EMTPY;
                 params[i].raw = NULL;
                 i++;
+                if (i == cnt) {
+                    return i;
+                }
                 break;
             case '"':
-                params[i].type = AT_CMD_PARAM_TYPE_STRING;
+                params[i].type = AT_PARAM_TYPE_STRING;
                 params[i].raw = s;
-                state = AT_CMD_PARAM_FIND_STRING_END;
-                break;
-            case '-':
-            case '0':
-            case '1':
-            case '2':
-            case '3':
-            case '4':
-            case '5':
-            case '6':
-            case '7':
-            case '8':
-            case '9':
-                params[i].type = AT_CMD_PARAM_TYPE_NUM;
-                params[i].raw = s;
-                state = AT_CMD_PARAM_FIND_END;
+                state = AT_PARAM_FIND_STRING_END;
                 break;
             default:
-                params[i].type = AT_CMD_PARAM_TYPE_UNKNOWN;
+                params[i].type = AT_PARAM_TYPE_UNKNOWN;
                 params[i].raw = s;
-                state = AT_CMD_PARAM_FIND_END;
+                state = AT_PARAM_FIND_END;
             }
             break;
-        case AT_CMD_PARAM_FIND_END:
+        case AT_PARAM_FIND_END:
             switch (*s) {
             case ',':
                 *s = '\0';
+                if (params[i].type == AT_PARAM_TYPE_UNKNOWN) {
+                    params[i].type = at_param_get_type(params + i);
+                }
                 i++;
-                state = AT_CMD_PARAM_FIND_START;
+                if (i == cnt) {
+                    return i;
+                }
+                state = AT_PARAM_FIND_START;    
+                break;
+            case '"':
+                if (params[i].type == AT_PARAM_TYPE_STRING) {
+                    params[i].type = AT_PARAM_TYPE_UNKNOWN;
+                }
                 break;
             default:
                 break;
             }
             break;
-        case AT_CMD_PARAM_FIND_STRING_END:
-            switch (*s) {
-            case '"':
-                state = AT_CMD_PARAM_FIND_END;
-                break;
+        case AT_PARAM_FIND_STRING_END:
+            if (*s == '"') {
+                state = AT_PARAM_FIND_END;
             }
             break;
         default:
@@ -217,10 +219,10 @@ static int at_parse_sub_params(char *s, struct at_cmd_param *params, int cnt)
         }
     }
     switch (state) {
-    case AT_CMD_PARAM_FIND_END:
+    case AT_PARAM_FIND_END:
         i++;
         break;
-    case AT_CMD_PARAM_FIND_STRING_END:  
+    case AT_PARAM_FIND_STRING_END:  
         return -1;
     default:
         break;
@@ -232,7 +234,7 @@ int at_parser_post_char(struct at_parser *parser, int c)
 {
     unsigned int cnt;
     struct at_cmd_desc *desc;
-    struct at_cmd_param params[AT_CMD_PARAMS_MAX_CNT];
+    struct at_param params[AT_CMD_PARAMS_MAX_CNT];
 
     AT_ASSERT(parser);
 
@@ -317,7 +319,9 @@ int at_parser_post_char(struct at_parser *parser, int c)
             parser->state = ATP_STATE_WAIT_ARG_END;
             break;
         default:
-            parser->cmd[parser->cmd_pos++] = c;
+            if (parser->cmd_pos < sizeof(parser->cmd) - 1) {
+                parser->cmd[parser->cmd_pos++] = c;
+            }
             break;
         }
         break;
@@ -359,7 +363,9 @@ handle:
             at_parser_cmd_reset(parser);
             break;
         default:
-            parser->param_buf[parser->param_pos++] = c;
+            if (parser->param_pos < sizeof(parser->param_buf) - 1) {
+                parser->param_buf[parser->param_pos++] = c;
+            }
             break;
         }
         break;
@@ -371,9 +377,13 @@ handle:
 
 int at_cmd_register(struct at_parser *parser, const char *cmd,
     void (*handle)(struct at_parser *parser, const char *cmd, enum at_cmd_type type,
-    struct at_cmd_param *args, unsigned char count, void *arg))
+    struct at_param *args, unsigned char count, void *arg))
 {
     struct at_cmd_desc *desc;
+
+    AT_ASSERT(parser);
+    AT_ASSERT(cmd);
+    AT_ASSERT(handle);
 
     if (strlen(cmd) >= AT_CMD_NAME_MAX_LEN - 1) {
         return -1;
@@ -397,6 +407,9 @@ void at_cmd_unregister(struct at_parser *parser, const char *cmd)
     struct at_cmd_desc **desc = &(parser->desc_head);
     struct at_cmd_desc *cur;
 
+    AT_ASSERT(parser);
+    AT_ASSERT(cmd);
+
     while (*desc) {
         cur = *desc;
         if (!strncmp(cur->name, cmd, sizeof(cur->name))) {
@@ -411,6 +424,8 @@ void at_cmd_unregister(struct at_parser *parser, const char *cmd)
 void at_sync_response(struct at_parser *parser, enum at_resp_result result,
     const char *msg)
 {
+    AT_ASSERT(parser);
+
     if (msg) {
         parser->tx((void *)msg, strlen(msg), parser->arg);
         parser->tx("\r\n", 2, parser->arg);
@@ -423,6 +438,9 @@ void at_sync_response(struct at_parser *parser, enum at_resp_result result,
 
 void at_async_response(struct at_parser *parser, const char *msg)
 {
+    AT_ASSERT(parser);
+    AT_ASSERT(msg);
+
     parser->tx((void *)msg, strlen(msg), parser->arg);
     parser->tx("\r\n", 2, parser->arg);
 }
