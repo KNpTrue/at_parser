@@ -148,4 +148,12 @@ void at_sync_response(struct at_parser *parser, enum at_resp_result result,
 */
 void at_async_response(struct at_parser *parser, const char *msg);
 
+/**
+ * Get C style string from a string parameter.
+ *
+ * @param param a pointer to the parameter.
+ * @return the C style string.
+*/
+const char *at_param_str(struct at_param *param);
+
 #endif /* __AT_PARSER_H_ */

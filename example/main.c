@@ -66,6 +66,7 @@ void at_test_cmd_handle(struct at_parser *parser, const char *cmd, enum at_cmd_t
 {
     int i;
     char buf[BUFSIZ];
+    char *s;
     switch (type) {
     case AT_CMD_EXE:
         at_sync_response(parser, AT_RESP_OK, "TEST: exec");
@@ -76,6 +77,7 @@ void at_test_cmd_handle(struct at_parser *parser, const char *cmd, enum at_cmd_t
     case AT_CMD_SET:
         at_sync_response(parser, AT_RESP_OK, NULL);
         for (i = 0; i < count; i++) {
+            at_param_str(params + i);
             snprintf(buf, sizeof(buf), "type: %d, raw: %s",
                 params[i].type, params[i].raw);
             at_async_response(parser, buf);

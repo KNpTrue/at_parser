@@ -21,6 +21,7 @@
 */
 #include <string.h>
 #include <strings.h>
+#include <ctype.h>
 #include <at_parser.h>
 
 enum at_parser_state {
@@ -177,7 +178,7 @@ static int at_parse_sub_params(char *s, struct at_param *params, int cnt)
                 }
                 break;
             case '"':
-                params[i].type = AT_PARAM_TYPE_STRING;
+                params[i].type = AT_PARAM_TYPE_UNKNOWN;
                 params[i].raw = s;
                 state = AT_PARAM_FIND_STRING_END;
                 break;
@@ -188,8 +189,7 @@ static int at_parse_sub_params(char *s, struct at_param *params, int cnt)
             }
             break;
         case AT_PARAM_FIND_END:
-            switch (*s) {
-            case ',':
+            if (*s == ',') {
                 *s = '\0';
                 if (params[i].type == AT_PARAM_TYPE_UNKNOWN) {
                     params[i].type = at_param_get_type(params + i);
@@ -198,15 +198,7 @@ static int at_parse_sub_params(char *s, struct at_param *params, int cnt)
                 if (i == cnt) {
                     return i;
                 }
-                state = AT_PARAM_FIND_START;    
-                break;
-            case '"':
-                if (params[i].type == AT_PARAM_TYPE_STRING) {
-                    params[i].type = AT_PARAM_TYPE_UNKNOWN;
-                }
-                break;
-            default:
-                break;
+                state = AT_PARAM_FIND_START;
             }
             break;
         case AT_PARAM_FIND_STRING_END:
@@ -399,7 +391,9 @@ int at_cmd_register(struct at_parser *parser, const char *cmd,
         parser->desc_head->next = desc;
     } else {
         parser->desc_head = desc;
+        desc->next = NULL;
     }
+    return 0;
 }
 
 void at_cmd_unregister(struct at_parser *parser, const char *cmd)
@@ -443,4 +437,62 @@ void at_async_response(struct at_parser *parser, const char *msg)
 
     parser->tx((void *)msg, strlen(msg), parser->arg);
     parser->tx("\r\n", 2, parser->arg);
+}
+
+static int at_param_hex2num(char c)
+{
+    if (c >= '0' && c <= '9') {
+        return c - '0';
+    }
+    if (c >= 'A' && c <= 'F') {
+        return 0x0a + (c - 'A');
+    }
+    if (c >= 'a' && c <= 'f') {
+        return 0x0a + (c- 'a');
+    }
+    return -1;
+}
+
+const char *at_param_str(struct at_param *param)
+{
+    size_t len;
+    int num1, num2;
+    char *s, *t, *end;
+    char c;
+    AT_ASSERT(param);
+
+    if (param->type == AT_PARAM_TYPE_STRING) {
+        return param->raw;
+    } else if (param->type != AT_PARAM_TYPE_UNKNOWN) {
+        return NULL;
+    }
+
+    len = strlen(param->raw);
+    if (len < 2 || param->raw[0] != '"' ||
+        param->raw[len - 1] != '"') {
+        return NULL;
+    }
+    end = param->raw + len - 1;
+    s = param->raw + 1;
+    t = s;
+
+    while (t != end) {
+        c = *t++;
+        if (c == '\\' && end -t >= 2 && isalnum((int)t[0]) && isalnum((int)t[1])) {
+                num1 = at_param_hex2num(t[0]);
+                num2 = at_param_hex2num(t[1]);
+                if (num1 >= 0 && num2 >= 0) {
+                    *s++ = (num1 << 4) | num2;
+                    t += 2;
+                } else {
+                    *s++ = c;
+                }
+        } else {
+            *s++ = c;
+        }
+    }
+    *s = '\0';
+    param->raw += 1;
+    param->type = AT_PARAM_TYPE_STRING;
+    return param->raw;
 }
