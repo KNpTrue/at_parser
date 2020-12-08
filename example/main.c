@@ -78,7 +78,7 @@ void at_test_cmd_handle(struct at_parser *parser, const char *cmd, enum at_cmd_t
         at_sync_response(parser, AT_RESP_OK, NULL);
         for (i = 0; i < count; i++) {
             at_param_str(params + i);
-            snprintf(buf, sizeof(buf), "type: %d, raw: %s",
+            snprintf(buf, sizeof(buf), "type: %d, raw: \"%s\"",
                 params[i].type, params[i].raw);
             at_async_response(parser, buf);
         }

@@ -67,10 +67,10 @@ void ate_cmd_handle(struct at_parser *parser, const char *cmd, enum at_cmd_type 
 {
     switch (type) {
     case AT_CMD_EXE:
-        if (!strcasecmp(cmd, "E1")) {
-            at_parser_set_echo(parser, 1);
-        } else {
+        if (!strcasecmp(cmd, "E0")) {
             at_parser_set_echo(parser, 0);
+        } else {
+            at_parser_set_echo(parser, 1);
         }
         at_sync_response(parser, AT_RESP_OK, NULL);
         break;
@@ -159,6 +159,7 @@ static enum at_param_type at_param_get_type(struct at_param *param)
 static int at_parse_sub_params(char *s, struct at_param *params, int cnt)
 {
     int i = 0;
+    char *p;
     enum {
         AT_PARAM_FIND_START,
         AT_PARAM_FIND_END,
@@ -182,6 +183,8 @@ static int at_parse_sub_params(char *s, struct at_param *params, int cnt)
                 params[i].raw = s;
                 state = AT_PARAM_FIND_STRING_END;
                 break;
+            case ' ':
+                break;
             default:
                 params[i].type = AT_PARAM_TYPE_UNKNOWN;
                 params[i].raw = s;
@@ -190,7 +193,11 @@ static int at_parse_sub_params(char *s, struct at_param *params, int cnt)
             break;
         case AT_PARAM_FIND_END:
             if (*s == ',') {
-                *s = '\0';
+                p = s - 1;
+                while (*p == ' ') {
+                    p--;
+                }
+                *(p + 1) = '\0';
                 if (params[i].type == AT_PARAM_TYPE_UNKNOWN) {
                     params[i].type = at_param_get_type(params + i);
                 }
@@ -212,6 +219,11 @@ static int at_parse_sub_params(char *s, struct at_param *params, int cnt)
     }
     switch (state) {
     case AT_PARAM_FIND_END:
+        p = s - 1;
+        while (*p == ' ') {
+            p--;
+        }
+        *(p + 1) = '\0';
         i++;
         break;
     case AT_PARAM_FIND_STRING_END:  
