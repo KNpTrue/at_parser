@@ -19,31 +19,42 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
 */
-#ifndef __AT_CONFIG_H_
-#define __AT_CONFIG_H_
+#ifndef __AT_PARAM_H_
+#define __AT_PARAM_H_
 
-#include <stdlib.h>
-#include <string.h>
-#include <strings.h>
-#include <ctype.h>
+/**
+ * AT parameter type.
+*/
+enum at_param_type {
+    AT_PARAM_TYPE_EMTPY,    /**< empty */
+    AT_PARAM_TYPE_UNKNOWN,  /**< unknown */
+    AT_PARAM_TYPE_STRING,   /**< string */
+};
 
-#define AT_DEBUG
+/**
+ * The argument of the command.
+*/
+struct at_param {
+    enum at_param_type type;
+    char *raw;  /**< raw string */
+};
 
-#define AT_CMD_PARAMS_MAX_CNT 24
-#define AT_CMD_NAME_MAX_LEN 32
-#define AT_RX_BUF_LEN 1024
+/**
+ * Parse AT command parameters.
+ *
+ * @param s is a pointer to C style string.
+ * @param param is an array to store parameters after parsing.
+ * @param size is the size of the array.
+ * @return the count of parameters, -1 on error.
+*/
+int at_param_parse(char *s, struct at_param *params, int size);
 
-/* Allocate SIZE bytes of memory. */
-#define at_malloc(size) malloc(size)
+/**
+ * Get C style string from a string parameter.
+ *
+ * @param param is a pointer to the parameter.
+ * @return is the C style string.
+*/
+const char *at_param_str(struct at_param *param);
 
-/* Free a block allocated by `malloc', `realloc' or `calloc'. */
-#define at_free(ptr)    free(ptr)
-
-#ifdef AT_DEBUG
-#include <assert.h>
-#define AT_ASSERT(expr) assert(expr)
-#else
-#define AT_ASSERT(expr)
-#endif
-
-#endif /* __AT_CONFIG_H_ */
+#endif /* __AT_PARAM_H_ */

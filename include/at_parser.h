@@ -22,7 +22,7 @@
 #ifndef __AT_PARSER_H_
 #define __AT_PARSER_H_
 
-#include <at_config.h>
+#include <at_param.h>
 
 /**
  * Response result.
@@ -43,15 +43,6 @@ enum at_cmd_type {
     AT_CMD_EXE,     /**< AT+CMD */
 };
 
-/**
- * AT parameter type.
-*/
-enum at_param_type {
-    AT_PARAM_TYPE_EMTPY,    /**< empty */
-    AT_PARAM_TYPE_UNKNOWN,  /**< unknown */
-    AT_PARAM_TYPE_STRING,   /**< string */
-};
-
 struct at_parser_config {
     unsigned char echo;
 
@@ -59,44 +50,36 @@ struct at_parser_config {
     void (*enable_read)(unsigned char value, void *arg);
 };
 
-/**
- * The argument of the command.
-*/
-struct at_param {
-    enum at_param_type type;
-    char *raw;  /**< raw string */
-};
-
 struct at_parser;
 
 /**
  * New a parser.
  *
- * @param cfg a pointer to the parser configuration.
- * @param arg extra argument in callback.
+ * @param cfg is a pointer to the parser configuration.
+ * @param arg is the extra argument in callback.
 */
 struct at_parser *at_parser_new(struct at_parser_config *cfg, void *arg);
 
 /**
  * Free a parser.
  *
- * @param parser a pointer to the parser.
+ * @param parser is a pointer to the parser.
 */
 void at_parser_free(struct at_parser *parser);
 
 /**
  * Set echo flag.
  *
- * @param parser a pointer to the parser.
- * @param echo a boolean, 1 on enable, 0 on disable.
+ * @param parser is a pointer to the parser.
+ * @param echo is a boolean, 1 on enable, 0 on disable.
 */
 void at_parser_set_echo(struct at_parser *parser, unsigned char echo);
 
 /**
  * Post a char to the parser.
  *
- * @param parser a pointer to the parser.
- * @param c a character.
+ * @param parser is a pointer to the parser.
+ * @param c is a character.
  * @return 0 on success, -1 on failed.
 */
 int at_parser_post_char(struct at_parser *parser, int c);
@@ -104,8 +87,8 @@ int at_parser_post_char(struct at_parser *parser, int c);
 /**
  * Register a command.
  *
- * @param parser a pointer to the parser.
- * @param cmd command name.
+ * @param parser is a pointer to the parser.
+ * @param cmd is command name.
  * @param handle is a callback called when a command is handled.
  * @return 0 on success, -1 on failed.
 */
@@ -116,8 +99,8 @@ int at_cmd_register(struct at_parser *parser, const char *cmd,
 /**
  * Unregister a command.
  *
- * @param parser a pointer to the parser.
- * @param cmd command name.
+ * @param parser is a pointer to the parser.
+ * @param cmd is command name.
 */
 void at_cmd_unregister(struct at_parser *parser, const char *cmd);
 
@@ -129,9 +112,9 @@ void at_cmd_unregister(struct at_parser *parser, const char *cmd);
  *   {result}<CR><LF>
  * @endcode
  *
- * @param parser a pointer to the parser.
- * @param result response result.
- * @param msg extra message. 
+ * @param parser is a pointer to the parser.
+ * @param result is response result.
+ * @param msg is extra message. 
 */
 void at_sync_response(struct at_parser *parser, enum at_resp_result result,
     const char *msg);
@@ -143,17 +126,9 @@ void at_sync_response(struct at_parser *parser, enum at_resp_result result,
  *   {msg}<CR><LF>
  * @endcode
  *
- * @param parser a pointer to the parser.
- * @param msg extra message. 
+ * @param parser is a pointer to the parser.
+ * @param msg is extra message. 
 */
 void at_async_response(struct at_parser *parser, const char *msg);
-
-/**
- * Get C style string from a string parameter.
- *
- * @param param a pointer to the parameter.
- * @return the C style string.
-*/
-const char *at_param_str(struct at_param *param);
 
 #endif /* __AT_PARSER_H_ */

@@ -34,6 +34,6 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/build/lib)
 include_directories(${INC_DIR})
 
 # Add source to at_parser
-add_library(at_parser SHARED ${SRC_DIR}/at_parser.c)
+add_library(at_parser SHARED ${SRC_DIR}/at_parser.c ${SRC_DIR}/at_param.c)
 
 add_subdirectory(example)
