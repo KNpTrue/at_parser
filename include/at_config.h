@@ -31,7 +31,7 @@
 
 #define AT_CMD_PARAMS_MAX_CNT 24
 #define AT_CMD_NAME_MAX_LEN 32
-#define AT_RX_BUF_LEN 1024
+#define AT_CMD_PARAM_MAX_LEN 1024
 
 /* Allocate SIZE bytes of memory. */
 #define at_malloc(size) malloc(size)

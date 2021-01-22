@@ -43,7 +43,7 @@ struct at_parser {
     unsigned int cmd_pos;
     unsigned int param_pos;
     char cmd[AT_CMD_NAME_MAX_LEN];
-    char param_buf[AT_RX_BUF_LEN];
+    char param_buf[AT_CMD_PARAM_MAX_LEN];
 
     unsigned char echo:1;
     unsigned char del:1;
@@ -160,7 +160,7 @@ int at_parser_post_char(struct at_parser *parser, int c)
     if (parser->wait_sync_resp) {
         return -1;
     }
-    if (c == 0x7f) {
+    if (c == 0x7f || c == 0x08) {
         switch (parser->state) {
         case ATP_STATE_WAIT_T:
             parser->state = ATP_STATE_WAIT_A;
